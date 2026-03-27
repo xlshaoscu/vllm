@@ -4,6 +4,7 @@
 
 from collections.abc import Callable
 import inspect
+import traceback
 
 import torch
 
@@ -50,8 +51,9 @@ def get_token_bin_counts_and_mask(
         (num_seqs, vocab_size + 1), dtype=torch.long, device=tokens.device
     )
     print(f"[{__file__}:{inspect.currentframe().f_lineno}] tokens shape: {tokens.shape}, tokens content: {tokens}")
-    bin_counts.scatter_add_(1, tokens, torch.ones_like(tokens))
     print(f"[{__file__}:{inspect.currentframe().f_lineno}] bin_counts shape: {bin_counts.shape}, bin_counts content: {bin_counts}")
+    print(f"[{__file__}:{inspect.currentframe().f_lineno}] Call stack:\n{''.join(traceback.format_stack())}")
+    bin_counts.scatter_add_(1, tokens, torch.ones_like(tokens))
     bin_counts = bin_counts[:, :vocab_size]
     mask = bin_counts > 0
 
