@@ -218,6 +218,18 @@ def get_tokenizer(
             "slowdown. Consider using a fast tokenizer instead."
         )
 
+    logger.error(
+        "[%s:%d] Tokenizer loaded: tokenizer_name=%s, tokenizer_mode=%s, "
+        "vocab_size=%d, max_token_id=%d, len(tokenizer)=%d",
+        __file__,
+        220,
+        tokenizer_name,
+        tokenizer_mode,
+        tokenizer.vocab_size,
+        tokenizer.max_token_id,
+        len(tokenizer),
+    )
+
     return tokenizer  # type: ignore
 
 
@@ -228,7 +240,7 @@ def cached_tokenizer_from_config(model_config: "ModelConfig", **kwargs):
     if model_config.skip_tokenizer_init:
         return None
 
-    return cached_get_tokenizer(
+    tokenizer = cached_get_tokenizer(
         model_config.tokenizer,
         runner_type=model_config.runner_type,
         tokenizer_mode=model_config.tokenizer_mode,
@@ -236,3 +248,32 @@ def cached_tokenizer_from_config(model_config: "ModelConfig", **kwargs):
         trust_remote_code=model_config.trust_remote_code,
         **kwargs,
     )
+
+    model_vocab_size = model_config.get_vocab_size()
+    tokenizer_vocab_size = tokenizer.vocab_size
+    tokenizer_max_token_id = tokenizer.max_token_id
+
+    logger.info(
+        "[%s:%d] Tokenizer loaded from config: model=%s, "
+        "model_vocab_size=%d, tokenizer_vocab_size=%d, tokenizer_max_token_id=%d, "
+        "vocab_size_diff=%d",
+        __file__,
+        252,
+        model_config.model,
+        model_vocab_size,
+        tokenizer_vocab_size,
+        tokenizer_max_token_id,
+        model_vocab_size - tokenizer_vocab_size,
+    )
+
+    if model_vocab_size != tokenizer_vocab_size:
+        logger.error(
+            "[%s:%d] Model vocab_size (%d) differs from tokenizer vocab_size (%d). "
+            "This is normal for some models like Qwen3 or multimodal models.",
+            __file__,
+            262,
+            model_vocab_size,
+            tokenizer_vocab_size,
+        )
+
+    return tokenizer
