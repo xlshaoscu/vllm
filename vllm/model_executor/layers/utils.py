@@ -3,6 +3,7 @@
 """Utility methods for model layers."""
 
 from collections.abc import Callable
+import inspect
 
 import torch
 
@@ -48,7 +49,9 @@ def get_token_bin_counts_and_mask(
     bin_counts = torch.zeros(
         (num_seqs, vocab_size + 1), dtype=torch.long, device=tokens.device
     )
+    print(f"[{__file__}:{inspect.currentframe().f_lineno}] tokens shape: {tokens.shape}, tokens content: {tokens}")
     bin_counts.scatter_add_(1, tokens, torch.ones_like(tokens))
+    print(f"[{__file__}:{inspect.currentframe().f_lineno}] bin_counts shape: {bin_counts.shape}, bin_counts content: {bin_counts}")
     bin_counts = bin_counts[:, :vocab_size]
     mask = bin_counts > 0
 
