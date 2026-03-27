@@ -218,7 +218,7 @@ def get_tokenizer(
             "slowdown. Consider using a fast tokenizer instead."
         )
 
-    logger.error(
+    logger.exception(
         "[%s:%d] Tokenizer loaded: tokenizer_name=%s, tokenizer_mode=%s, "
         "vocab_size=%d, max_token_id=%d, len(tokenizer)=%d",
         __file__,
