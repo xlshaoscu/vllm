@@ -4,6 +4,7 @@
 
 from dataclasses import dataclass
 from typing import cast
+import inspect
 
 import numpy as np
 import torch
@@ -308,6 +309,7 @@ class InputBatch:
         req_index = self._register_add_request(request)
 
         req_id = request.req_id
+        print(f"[{__file__}:{inspect.currentframe().f_lineno}] output_token_ids: {request.output_token_ids}")
         if req_index == len(self._req_ids):
             self._req_ids.append(req_id)
             self.req_output_token_ids.append(request.output_token_ids)
@@ -877,6 +879,8 @@ class InputBatch:
     def _make_prompt_token_ids_tensor(self) -> torch.Tensor:
         num_reqs = self.num_reqs
         max_prompt_len = self.num_prompt_tokens[:num_reqs].max()
+        print(f"[{__file__}:{inspect.currentframe().f_lineno}] vocab_size: {self.vocab_size}")
+        print(f"[{__file__}:{inspect.currentframe().f_lineno}] token_ids_cpu shape: {self.token_ids_cpu[:num_reqs, :max_prompt_len].shape}, content: {self.token_ids_cpu[:num_reqs, :max_prompt_len]}")
         prompt_token_ids_cpu_tensor = torch.empty(
             (self.num_reqs, max_prompt_len),
             device="cpu",

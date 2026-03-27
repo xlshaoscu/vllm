@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
+import inspect
+
 import torch
 
 from vllm.model_executor.layers.utils import apply_penalties
@@ -20,6 +22,9 @@ def apply_all_penalties(
     Applies presence, frequency and repetition penalties to the logits.
     """
     _, vocab_size = logits.shape
+    print(f"[{__file__}:{inspect.currentframe().f_lineno}] vocab_size: {vocab_size}")
+    print(f"[{__file__}:{inspect.currentframe().f_lineno}] prompt_token_ids shape: {prompt_token_ids.shape}, content: {prompt_token_ids}")
+    print(f"[{__file__}:{inspect.currentframe().f_lineno}] output_token_ids: {output_token_ids}")
     output_tokens_t = _convert_to_tensors(output_token_ids, vocab_size, logits.device)
 
     # In the async scheduling case, rows that won't have penalties applied may contain
