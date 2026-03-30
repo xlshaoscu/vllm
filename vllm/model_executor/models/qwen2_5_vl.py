@@ -1304,6 +1304,12 @@ class Qwen2_5_VLForConditionalGeneration(
         logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Splitting embeddings into sizes: {sizes}")
         split_embeds = image_embeds.split(sizes)
         logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Split into {len(split_embeds)} embeddings")
+        
+        # 打印每个图像 embedding 的详细信息
+        for i, embed in enumerate(split_embeds):
+            logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Image {i} embedding - Shape: {embed.shape}, Dtype: {embed.dtype}, Device: {embed.device}")
+            logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Image {i} embedding - First 3 values: {embed[0, :3] if embed.numel() > 3 else embed[0]}")
+        
         return split_embeds
 
     def _postprocess_image_embeds_evs(

@@ -448,11 +448,19 @@ def _merge_multimodal_embeddings(
     Note:
         This updates `inputs_embeds` in place.
     """
+    logger.info(f"SxlAdd: [_merge_multimodal_embeddings] Starting merge - inputs_embeds shape: {inputs_embeds.shape}, dtype: {inputs_embeds.dtype}")
+    logger.info(f"SxlAdd: [_merge_multimodal_embeddings] Number of multimodal embeddings: {len(multimodal_embeddings)}")
+    
     if len(multimodal_embeddings) == 0:
+        logger.info(f"SxlAdd: [_merge_multimodal_embeddings] No multimodal embeddings to merge, returning original inputs_embeds")
         return inputs_embeds
 
     mm_embeds_flat = _flatten_embeddings(multimodal_embeddings)
     input_dtype = inputs_embeds.dtype
+    
+    logger.info(f"SxlAdd: [_merge_multimodal_embeddings] Flattened multimodal embeddings shape: {mm_embeds_flat.shape}")
+    logger.info(f"SxlAdd: [_merge_multimodal_embeddings] is_multimodal shape: {is_multimodal.shape}, sum: {is_multimodal.sum().item()}")
+    logger.info(f"SxlAdd: [_merge_multimodal_embeddings] Number of multimodal tokens to insert: {len(mm_embeds_flat)}")
 
     try:
         # For debugging
@@ -460,9 +468,12 @@ def _merge_multimodal_embeddings(
 
         # NOTE: This can avoid D2H sync (#22105), but fails to
         # raise an error if is_multimodal.sum() < len(mm_embeds_flat)
+        logger.info(f"SxlAdd: [_merge_multimodal_embeddings] Merging multimodal embeddings into text embeddings...")
         inputs_embeds.masked_scatter_(
             is_multimodal.unsqueeze(-1), mm_embeds_flat.to(dtype=input_dtype)
         )
+        logger.info(f"SxlAdd: [_merge_multimodal_embeddings] Merge completed successfully")
+        logger.info(f"SxlAdd: [_merge_multimodal_embeddings] First 3 values of merged embeddings at position 0: {inputs_embeds[0, :3]}")
     except RuntimeError as e:
         num_actual_tokens = len(mm_embeds_flat)
         num_expected_tokens = is_multimodal.sum().item()

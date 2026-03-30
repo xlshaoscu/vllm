@@ -2629,21 +2629,28 @@ class GPUModelRunner(
 
         if self.supports_mm_inputs and is_first_rank and not is_encoder_decoder:
             # Run the multimodal encoder if any.
+            logger.info(f"SxlAdd: [GPUModelRunner._prepare_inputs] Processing multimodal inputs")
             with self.maybe_get_ec_connector_output(
                 scheduler_output,
                 encoder_cache=self.encoder_cache,
             ) as ec_connector_output:
                 self._execute_mm_encoder(scheduler_output)
                 mm_embeds, is_mm_embed = self._gather_mm_embeddings(scheduler_output)
+            
+            logger.info(f"SxlAdd: [GPUModelRunner._prepare_inputs] Gathered {len(mm_embeds)} multimodal embeddings")
+            logger.info(f"SxlAdd: [GPUModelRunner._prepare_inputs] is_mm_embed shape: {is_mm_embed.shape}, sum: {is_mm_embed.sum().item()}")
+            logger.info(f"SxlAdd: [GPUModelRunner._prepare_inputs] input_ids shape: {self.input_ids.gpu[:num_scheduled_tokens].shape}")
 
             # NOTE(woosuk): To unify token ids and soft tokens (vision
             # embeddings), we always use embeddings (rather than token ids)
             # as input to the multimodal model, even when the input is text.
+            logger.info(f"SxlAdd: [GPUModelRunner._prepare_inputs] Calling embed_input_ids to merge text and multimodal embeddings")
             inputs_embeds_scheduled = self.model.embed_input_ids(
                 self.input_ids.gpu[:num_scheduled_tokens],
                 multimodal_embeddings=mm_embeds,
                 is_multimodal=is_mm_embed,
             )
+            logger.info(f"SxlAdd: [GPUModelRunner._prepare_inputs] embed_input_ids completed, output shape: {inputs_embeds_scheduled.shape}")
 
             # TODO(woosuk): Avoid the copy. Optimize.
             self.inputs_embeds.gpu[:num_scheduled_tokens].copy_(inputs_embeds_scheduled)
