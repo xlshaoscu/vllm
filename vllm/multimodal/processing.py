@@ -206,7 +206,10 @@ def _cached_encode(
     *,
     add_special_tokens: bool = True,
 ) -> list[int]:
-    return tokenizer.encode(text, add_special_tokens=add_special_tokens)
+    logger.info(f"SxlAdd: Encoding text: '{text[:50]}'{'...' if len(text) > 50 else ''}")
+    token_ids = tokenizer.encode(text, add_special_tokens=add_special_tokens)
+    logger.info(f"SxlAdd: Encoded to token IDs: {token_ids[:10]}{'...' if len(token_ids) > 10 else ''}")
+    return token_ids
 
 
 @lru_cache(maxsize=2048)

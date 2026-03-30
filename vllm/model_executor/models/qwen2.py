@@ -434,15 +434,23 @@ class Qwen2Model(nn.Module):
         inputs_embeds: torch.Tensor | None = None,
     ) -> torch.Tensor | IntermediateTensors:
         if get_pp_group().is_first_rank:
+            logger.info(f"SxlAdd: Qwen2Model.forward - Input shape: {input_ids.shape if input_ids is not None else 'None'}")
+            logger.info(f"SxlAdd: Qwen2Model.forward - Positions shape: {positions.shape}")
+            
             if inputs_embeds is not None:
+                logger.info(f"SxlAdd: Qwen2Model.forward - Using pre-computed inputs_embeds with shape: {inputs_embeds.shape}")
                 hidden_states = inputs_embeds
             else:
+                logger.info(f"SxlAdd: Qwen2Model.forward - Embedding input_ids")
                 hidden_states = self.embed_input_ids(input_ids)
+            
+            logger.info(f"SxlAdd: Qwen2Model.forward - Embedded hidden_states shape: {hidden_states.shape}")
             residual = None
         else:
             assert intermediate_tensors is not None
             hidden_states = intermediate_tensors["hidden_states"]
             residual = intermediate_tensors["residual"]
+            logger.info(f"SxlAdd: Qwen2Model.forward - Using intermediate tensors, hidden_states shape: {hidden_states.shape}")
 
         aux_hidden_states = []
         for idx, layer in enumerate(

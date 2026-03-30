@@ -1554,15 +1554,23 @@ class Qwen2_5_VLForConditionalGeneration(
                 otherwise it will be `(seq_len,).
         """
 
+        logger.info(f"SxlAdd: Qwen2_5_VLForConditionalGeneration.forward - Input shape: {input_ids.shape if input_ids is not None else 'None'}")
+        logger.info(f"SxlAdd: Qwen2_5_VLForConditionalGeneration.forward - Positions shape: {positions.shape}")
+        logger.info(f"SxlAdd: Qwen2_5_VLForConditionalGeneration.forward - Inputs embeds shape: {inputs_embeds.shape if inputs_embeds is not None else 'None'}")
+        
         if intermediate_tensors is not None:
+            logger.info(f"SxlAdd: Qwen2_5_VLForConditionalGeneration.forward - Using intermediate tensors")
             inputs_embeds = None
 
+        logger.info(f"SxlAdd: Qwen2_5_VLForConditionalGeneration.forward - Calling language model forward pass")
         hidden_states = self.language_model.model(
             input_ids=input_ids,
             positions=positions,
             intermediate_tensors=intermediate_tensors,
             inputs_embeds=inputs_embeds,
         )
+        
+        logger.info(f"SxlAdd: Qwen2_5_VLForConditionalGeneration.forward - Language model output shape: {hidden_states.shape if hasattr(hidden_states, 'shape') else 'N/A'}")
         return hidden_states
 
     def compute_logits(
