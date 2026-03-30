@@ -61,6 +61,7 @@ from vllm.model_executor.model_loader.weight_utils import (
 from vllm.sequence import IntermediateTensors
 from vllm.transformers_utils.config import is_interleaved, set_default_rope_theta
 from vllm.v1.attention.backend import AttentionType
+from vllm.logger import init_logger
 
 from .interfaces import SupportsEagle3, SupportsLoRA, SupportsPP
 from .utils import (
@@ -72,6 +73,8 @@ from .utils import (
     make_layers,
     maybe_prefix,
 )
+
+logger = init_logger(__name__)
 
 
 class Qwen2MLP(nn.Module):
@@ -413,7 +416,15 @@ class Qwen2Model(nn.Module):
         self.aux_hidden_state_layers = tuple[int, ...]()
 
     def embed_input_ids(self, input_ids: torch.Tensor) -> torch.Tensor:
-        return self.embed_tokens(input_ids)
+        logger.info(f"SxlAdd: Embedding input_ids shape: {input_ids.shape}, dtype: {input_ids.dtype}")
+        logger.info(f"SxlAdd: First 5 input_ids: {input_ids[:5] if input_ids.numel() > 5 else input_ids}")
+        
+        hidden_states = self.embed_tokens(input_ids)
+        
+        logger.info(f"SxlAdd: Embedded hidden_states shape: {hidden_states.shape}, dtype: {hidden_states.dtype}")
+        logger.info(f"SxlAdd: First 5 embedded vectors shape: {hidden_states[:5].shape}")
+        
+        return hidden_states
 
     def forward(
         self,

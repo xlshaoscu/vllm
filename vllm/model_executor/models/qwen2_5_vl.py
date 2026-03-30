@@ -965,10 +965,15 @@ class Qwen2_5_VLMultiModalProcessor(Qwen2VLMultiModalProcessor):
         tokenizer = self.info.get_tokenizer()
         vocab = tokenizer.get_vocab()
 
+        logger.info(f"SxlAdd: [Qwen2_5_VLMultiModalProcessor._get_prompt_updates] Processor type: {type(hf_processor).__name__}")
+        logger.info(f"SxlAdd: [Qwen2_5_VLMultiModalProcessor._get_prompt_updates] Image token: {hf_processor.image_token}, Video token: {hf_processor.video_token}")
+        logger.info(f"SxlAdd: [Qwen2_5_VLMultiModalProcessor._get_prompt_updates] Vocab size: {len(vocab)}")
+
         placeholder = {
             "image": vocab[hf_processor.image_token],
             "video": vocab[hf_processor.video_token],
         }
+        logger.info(f"SxlAdd: [Qwen2_5_VLMultiModalProcessor._get_prompt_updates] Placeholder token IDs - image: {placeholder['image']}, video: {placeholder['video']}")
 
         merge_length = image_processor.merge_size**2
 
@@ -1271,22 +1276,35 @@ class Qwen2_5_VLForConditionalGeneration(
         assert grid_thw.ndim == 2
         grid_thw_list = grid_thw.tolist()
 
+        logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Processing image input of type: {image_input['type']}")
+        logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Image grid THW: {grid_thw_list}")
+
         if image_input["type"] == "image_embeds":
             image_embeds = image_input["image_embeds"].type(self.visual.dtype)
+            logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Using pre-computed image embeds with shape: {image_embeds.shape}")
         else:
             pixel_values = image_input["pixel_values"]
+            logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Processing pixel values with shape: {pixel_values.shape}")
             with set_forward_context(None, self.vllm_config):
                 if self.use_data_parallel:
-                    return run_dp_sharded_mrope_vision_model(
+                    logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Using data parallel processing")
+                    result = run_dp_sharded_mrope_vision_model(
                         self.visual, pixel_values, grid_thw_list, rope_type="rope_3d"
                     )
+                    logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Data parallel processing completed, got {len(result)} embeddings")
+                    return result
                 else:
+                    logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Using single GPU processing")
                     image_embeds = self.visual(pixel_values, grid_thw=grid_thw_list)
+                    logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Visual encoder output shape: {image_embeds.shape}")
 
         # Split concatenated embeddings for each image item.
         merge_size = self.visual.spatial_merge_size
         sizes = (grid_thw.prod(-1) // merge_size // merge_size).tolist()
-        return image_embeds.split(sizes)
+        logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Splitting embeddings into sizes: {sizes}")
+        split_embeds = image_embeds.split(sizes)
+        logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Split into {len(split_embeds)} embeddings")
+        return split_embeds
 
     def _postprocess_image_embeds_evs(
         self,
