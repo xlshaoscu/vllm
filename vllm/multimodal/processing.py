@@ -1258,6 +1258,14 @@ class InputProcessingContext:
         )
 
         try:
+            # 记录将要处理的数据
+            logger.error(f"[MultiModalProcessor.call_hf_processor] Calling {type(hf_processor).__name__} with data keys: {list(data.keys())}")
+            if 'text' in data:
+                logger.error(f"[MultiModalProcessor.call_hf_processor] Text to process: '{data['text']}'")
+            if 'images' in data:
+                images = data['images']
+                logger.error(f"[MultiModalProcessor.call_hf_processor] Number of images: {len(images) if hasattr(images, '__len__') else 'N/A'}")
+
             output = hf_processor(**data, **allowed_kwargs, return_tensors="pt")
         except Exception as exc:
             # See https://github.com/huggingface/tokenizers/issues/537
@@ -1281,6 +1289,34 @@ class InputProcessingContext:
                     num_tries=num_tries + 1,
                     max_tries=max_tries,
                 )
+
+            # 记录详细错误信息
+            logger.error(
+                f"[MultiModalProcessor.call_hf_processor] Failed to apply {type(hf_processor).__name__} "
+                f"on data={data} with kwargs={allowed_kwargs}"
+            )
+            logger.error(
+                f"[MultiModalProcessor.call_hf_processor] Exception type: {type(exc).__name__}, "
+                f"exception message: {str(exc)}"
+            )
+            # 记录数据详细信息
+            if 'text' in data:
+                logger.error(f"[MultiModalProcessor.call_hf_processor] Text content: '{data['text']}'")
+                # 检查文本中是否包含特殊标记
+                if isinstance(data['text'], str):
+                    import re
+                    special_tokens = re.findall(r'<\|[^|]+\|>', data['text'])
+                    if special_tokens:
+                        logger.error(f"[MultiModalProcessor.call_hf_processor] Found special tokens in text: {special_tokens}")
+
+            if 'images' in data:
+                images = data['images']
+                logger.error(f"[MultiModalProcessor.call_hf_processor] Images type: {type(images)}, "
+                           f"length: {len(images) if hasattr(images, '__len__') else 'N/A'}")
+                if hasattr(images, '__len__') and len(images) > 0:
+                    first_img = images[0]
+                    logger.error(f"[MultiModalProcessor.call_hf_processor] First image type: {type(first_img)}, "
+                               f"size: {getattr(first_img, 'size', 'N/A') if hasattr(first_img, 'size') else 'N/A'}")
 
             msg = (
                 f"Failed to apply {type(hf_processor).__name__} "
@@ -1714,9 +1750,21 @@ class BaseMultiModalProcessor(ABC, Generic[_I]):
         associated multi-modal data.
         """
         with _timed_operation(self.info.ctx, "hf_processor"):
+            # 记录将要传递给处理器的数据
+            processor_data = dict(text=prompt, **mm_data)
+            logger.error(f"[MultiModalProcessor._call_hf_processor] Constructing data for HF processor")
+            logger.error(f"[MultiModalProcessor._call_hf_processor] Prompt: '{prompt}'")
+            logger.error(f"[MultiModalProcessor._call_hf_processor] mm_data keys: {list(mm_data.keys())}")
+            logger.error(f"[MultiModalProcessor._call_hf_processor] Full processor data keys: {list(processor_data.keys())}")
+
+            if 'images' in mm_data:
+                images = mm_data['images']
+                logger.error(f"[MultiModalProcessor._call_hf_processor] Images in mm_data: type={type(images)}, "
+                           f"length={len(images) if hasattr(images, '__len__') else 'N/A'}")
+
             return self.info.ctx.call_hf_processor(
                 self.info.get_hf_processor(**mm_kwargs),
-                dict(text=prompt, **mm_data),
+                processor_data,
                 dict(**mm_kwargs, **tok_kwargs),
             )
 

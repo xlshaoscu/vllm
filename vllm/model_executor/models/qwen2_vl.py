@@ -1079,12 +1079,52 @@ class Qwen2VLMultiModalProcessor(BaseMultiModalProcessor[Qwen2VLProcessingInfo])
         hf_processor = self.info.get_hf_processor(**hf_processor_mm_kwargs)
         image_processor = self.info.get_image_processor(**hf_processor_mm_kwargs)
         tokenizer = self.info.get_tokenizer()
+
+        # 记录处理器和tokenizer信息
+        logger.error(
+            f"[Qwen2VLMultiModalProcessor._get_prompt_updates] Processor type: {type(hf_processor).__name__}, "
+            f"image_token: {getattr(hf_processor, 'image_token', 'NOT_SET')}, "
+            f"video_token: {getattr(hf_processor, 'video_token', 'NOT_SET')}"
+        )
+
         vocab = tokenizer.get_vocab()
 
-        placeholder = {
-            "image": vocab[hf_processor.image_token],
-            "video": vocab[hf_processor.video_token],
-        }
+        # 记录vocab信息
+        logger.error(
+            f"[Qwen2VLMultiModalProcessor._get_prompt_updates] Vocab size: {len(vocab)}, "
+            f"sample tokens: {list(vocab.items())[:5] if len(vocab) > 0 else 'EMPTY'}"
+        )
+
+        # 检查关键token是否存在
+        image_token = getattr(hf_processor, 'image_token', None)
+        video_token = getattr(hf_processor, 'video_token', None)
+
+        if image_token and image_token not in vocab:
+            logger.error(f"[Qwen2VLMultiModalProcessor._get_prompt_updates] image_token '{image_token}' not found in vocab!")
+        if video_token and video_token not in vocab:
+            logger.error(f"[Qwen2VLMultiModalProcessor._get_prompt_updates] video_token '{video_token}' not found in vocab!")
+
+        # 尝试获取占位符token，捕获异常并记录详细信息
+        placeholder = {}
+        try:
+            placeholder = {
+                "image": vocab[hf_processor.image_token],
+                "video": vocab[hf_processor.video_token],
+            }
+            logger.error(
+                f"[Qwen2VLMultiModalProcessor._get_prompt_updates] Placeholder token IDs - "
+                f"image: {placeholder['image']}, video: {placeholder['video']}"
+            )
+        except KeyError as e:
+            missing_token = str(e).strip("'")
+            logger.error(
+                f"[Qwen2VLMultiModalProcessor._get_prompt_updates] KeyError: Token '{missing_token}' not found in vocabulary. "
+                f"Processor image_token: '{getattr(hf_processor, 'image_token', 'NOT_SET')}', "
+                f"video_token: '{getattr(hf_processor, 'video_token', 'NOT_SET')}'. "
+                f"Vocab keys containing 'image': {[k for k in vocab.keys() if 'image' in k.lower()][:10]}, "
+                f"containing 'vision': {[k for k in vocab.keys() if 'vision' in k.lower()][:10]}"
+            )
+            raise
 
         merge_length = image_processor.merge_size**2
 
