@@ -58,12 +58,20 @@ class IncrementalDetokenizer:
         if USE_FAST_DETOKENIZER and isinstance(tokenizer, PreTrainedTokenizerFast):
             # Fast tokenizer => use tokenizers library DecodeStream.
             logger.info(f"SxlAdd: 【Detokenizer选择】使用FastIncrementalDetokenizer")
-            logger.info(f"SxlAdd: 【Detokenizer选择】调用堆栈:\n{traceback.format_stack()[-10:]}")
+            # 只打印最后10行调用堆栈
+            stack_lines = traceback.format_stack()
+            if len(stack_lines) > 10:
+                stack_lines = stack_lines[-10:]
+            logger.info(f"SxlAdd: 【Detokenizer选择】调用堆栈:\n{''.join(stack_lines)}")
             return FastIncrementalDetokenizer(tokenizer, request)
 
         # Fall back to slow python-based incremental detokenization.
         logger.info(f"SxlAdd: 【Detokenizer选择】使用SlowIncrementalDetokenizer")
-        logger.info(f"SxlAdd: 【Detokenizer选择】调用堆栈:\n{traceback.format_stack()[-10:]}")
+        # 只打印最后10行调用堆栈
+        stack_lines = traceback.format_stack()
+        if len(stack_lines) > 10:
+            stack_lines = stack_lines[-10:]
+        logger.info(f"SxlAdd: 【Detokenizer选择】调用堆栈:\n{''.join(stack_lines)}")
         return SlowIncrementalDetokenizer(tokenizer, request)
 
 
@@ -226,7 +234,12 @@ class FastIncrementalDetokenizer(BaseIncrementalDetokenizer):
                 self.spaces_between_special_tokens = True
 
     def decode_next(self, next_token_id: int) -> str:
-        logger.exception(f"SxlAdd: 【Detokenizer使用】使用SlowIncrementalDetokenizer解码")
+        logger.info(f"SxlAdd: 【FastIncrementalDetokenizer】开始解码token，ID: {next_token_id}")
+        # 只打印最后10行调用堆栈
+        stack_lines = traceback.format_stack()
+        if len(stack_lines) > 10:
+            stack_lines = stack_lines[-10:]
+        logger.info(f"SxlAdd: 【FastIncrementalDetokenizer】调用堆栈:\n{''.join(stack_lines)}")
         token = self._protected_step(next_token_id)
 
         if not self.spaces_between_special_tokens:
@@ -237,6 +250,7 @@ class FastIncrementalDetokenizer(BaseIncrementalDetokenizer):
                 token = special_token
             self.last_special = is_special
 
+        logger.info(f"SxlAdd: 【FastIncrementalDetokenizer】解码完成，结果: '{token or ''}'")
         return token or ""
 
     def _protected_step(self, next_token_id: int) -> str | None:
@@ -305,7 +319,14 @@ class SlowIncrementalDetokenizer(BaseIncrementalDetokenizer):
         )
 
     def decode_next(self, next_token_id: int) -> str:
-        logger.exception(f"SxlAdd: 【Detokenizer使用】使用SlowIncrementalDetokenizer解码")
+        logger.info(f"SxlAdd: 【SlowIncrementalDetokenizer】开始解码token，ID: {next_token_id}")
+        # 只打印最后10行调用堆栈
+        stack_lines = traceback.format_stack()
+        if len(stack_lines) > 10:
+            stack_lines = stack_lines[-10:]
+        logger.info(f"SxlAdd: 【SlowIncrementalDetokenizer】调用堆栈:\n{''.join(stack_lines)}")
+        logger.info(f"SxlAdd: 【SlowIncrementalDetokenizer】参数: tokenizer={type(self.tokenizer).__name__}, all_input_ids长度={len(self.token_ids)}, prev_tokens长度={len(self.tokens)}, prefix_offset={self.prefix_offset}, read_offset={self.read_offset}, skip_special_tokens={self.skip_special_tokens}, spaces_between_special_tokens={self.spaces_between_special_tokens}")
+        
         new_tokens, decoded_text, prefix_offset, read_offset = detokenize_incrementally(
             tokenizer=self.tokenizer,
             all_input_ids=self.token_ids,
@@ -320,6 +341,7 @@ class SlowIncrementalDetokenizer(BaseIncrementalDetokenizer):
         self.prefix_offset = prefix_offset
         self.read_offset = read_offset
 
+        logger.info(f"SxlAdd: 【SlowIncrementalDetokenizer】解码完成，结果: '{decoded_text}', new_tokens={new_tokens}, prefix_offset={prefix_offset}, read_offset={read_offset}")
         return decoded_text
 
 
