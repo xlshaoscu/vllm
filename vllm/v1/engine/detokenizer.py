@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 from abc import ABC, abstractmethod
+import traceback
 
 import tokenizers
 from packaging import version
@@ -56,9 +57,13 @@ class IncrementalDetokenizer:
 
         if USE_FAST_DETOKENIZER and isinstance(tokenizer, PreTrainedTokenizerFast):
             # Fast tokenizer => use tokenizers library DecodeStream.
+            logger.info(f"SxlAdd: 【Detokenizer选择】使用FastIncrementalDetokenizer")
+            logger.info(f"SxlAdd: 【Detokenizer选择】调用堆栈:\n{traceback.format_stack()[-10:]}")
             return FastIncrementalDetokenizer(tokenizer, request)
 
         # Fall back to slow python-based incremental detokenization.
+        logger.info(f"SxlAdd: 【Detokenizer选择】使用SlowIncrementalDetokenizer")
+        logger.info(f"SxlAdd: 【Detokenizer选择】调用堆栈:\n{traceback.format_stack()[-10:]}")
         return SlowIncrementalDetokenizer(tokenizer, request)
 
 
