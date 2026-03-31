@@ -416,13 +416,13 @@ class Qwen2Model(nn.Module):
         self.aux_hidden_state_layers = tuple[int, ...]()
 
     def embed_input_ids(self, input_ids: torch.Tensor) -> torch.Tensor:
-        logger.info(f"SxlAdd: Embedding input_ids shape: {input_ids.shape}, dtype: {input_ids.dtype}")
-        logger.info(f"SxlAdd: First 5 input_ids: {input_ids[:5] if input_ids.numel() > 5 else input_ids}")
+        logger.info(f"SxlAdd: 【Token嵌入流程】嵌入input_ids形状: {input_ids.shape}, 数据类型: {input_ids.dtype}")
+        logger.info(f"SxlAdd: 【Token嵌入流程】前5个input_ids: {input_ids[:5] if input_ids.numel() > 5 else input_ids}")
         
         hidden_states = self.embed_tokens(input_ids)
         
-        logger.info(f"SxlAdd: Embedded hidden_states shape: {hidden_states.shape}, dtype: {hidden_states.dtype}")
-        logger.info(f"SxlAdd: First 5 embedded vectors shape: {hidden_states[:5].shape}")
+        logger.info(f"SxlAdd: 【Token嵌入流程】嵌入后hidden_states形状: {hidden_states.shape}, 数据类型: {hidden_states.dtype}")
+        logger.info(f"SxlAdd: 【Token嵌入流程】前5个嵌入向量形状: {hidden_states[:5].shape}")
         
         return hidden_states
 
@@ -434,23 +434,23 @@ class Qwen2Model(nn.Module):
         inputs_embeds: torch.Tensor | None = None,
     ) -> torch.Tensor | IntermediateTensors:
         if get_pp_group().is_first_rank:
-            logger.info(f"SxlAdd: Qwen2Model.forward - Input shape: {input_ids.shape if input_ids is not None else 'None'}")
-            logger.info(f"SxlAdd: Qwen2Model.forward - Positions shape: {positions.shape}")
+            logger.info(f"SxlAdd: 【模型推理流程】Qwen2Model.forward - 输入形状: {input_ids.shape if input_ids is not None else 'None'}")
+            logger.info(f"SxlAdd: 【模型推理流程】Qwen2Model.forward - 位置形状: {positions.shape}")
             
             if inputs_embeds is not None:
-                logger.info(f"SxlAdd: Qwen2Model.forward - Using pre-computed inputs_embeds with shape: {inputs_embeds.shape}")
+                logger.info(f"SxlAdd: 【模型推理流程】Qwen2Model.forward - 使用预计算的inputs_embeds，形状: {inputs_embeds.shape}")
                 hidden_states = inputs_embeds
             else:
-                logger.info(f"SxlAdd: Qwen2Model.forward - Embedding input_ids")
+                logger.info(f"SxlAdd: 【模型推理流程】Qwen2Model.forward - 嵌入input_ids")
                 hidden_states = self.embed_input_ids(input_ids)
             
-            logger.info(f"SxlAdd: Qwen2Model.forward - Embedded hidden_states shape: {hidden_states.shape}")
+            logger.info(f"SxlAdd: 【模型推理流程】Qwen2Model.forward - 嵌入后hidden_states形状: {hidden_states.shape}")
             residual = None
         else:
             assert intermediate_tensors is not None
             hidden_states = intermediate_tensors["hidden_states"]
             residual = intermediate_tensors["residual"]
-            logger.info(f"SxlAdd: Qwen2Model.forward - Using intermediate tensors, hidden_states shape: {hidden_states.shape}")
+            logger.info(f"SxlAdd: 【模型推理流程】Qwen2Model.forward - 使用中间张量，hidden_states形状: {hidden_states.shape}")
 
         aux_hidden_states = []
         for idx, layer in enumerate(

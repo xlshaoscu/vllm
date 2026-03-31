@@ -120,7 +120,7 @@ class BaseIncrementalDetokenizer(IncrementalDetokenizer, ABC):
             token_str = self.decode_next(new_token_id)
             self.output_text += token_str
             # Log each generated token
-            logger.info(f"SxlAdd: Generated token - ID: {new_token_id}, String: '{token_str}'")
+            logger.info(f"SxlAdd: 【Token生成流程】生成token - ID: {new_token_id}, 字符串: '{token_str}'")
             # Support min_tokens, see https://github.com/vllm-project/vllm/pull/22014
             if self.min_tokens and len(self.output_token_ids) <= self.min_tokens:
                 stop_check_offset = len(self.output_text)

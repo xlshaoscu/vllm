@@ -1410,6 +1410,10 @@ class GPUModelRunner(
             token_indices_tensor,
             out=self.input_ids.cpu[:total_num_scheduled_tokens],
         )
+        
+        # 日志：输入序列构建
+        input_sequence = self.input_ids.cpu[:total_num_scheduled_tokens].tolist()
+        logger.info(f"SxlAdd: [GPUModelRunner._prepare_inputs] 【输入构建流程】构建完整输入序列，包含之前的输入和新生成的token：{input_sequence}")
         if self.enable_prompt_embeds:
             is_token_ids = self.input_batch.is_token_ids_tensor.flatten()
             torch.index_select(
@@ -2343,6 +2347,10 @@ class GPUModelRunner(
         self.is_mm_embed_idx = 1 - self.is_mm_embed_idx
         is_mm_embed_buf = self.is_mm_embed_buffers[self.is_mm_embed_idx]
 
+        # 日志：输入token
+        input_tokens = self.input_ids.gpu[:total_num_scheduled_tokens]
+        logger.info(f"SxlAdd: [GPUModelRunner._gather_mm_embeddings] 【多模态处理流程】开始收集多模态嵌入，当前输入的token序列：{input_tokens.tolist()}")
+
         mm_embeds = list[torch.Tensor]()
         is_mm_embed = is_mm_embed_buf.cpu
         is_mm_embed[:total_num_scheduled_tokens] = False
@@ -2629,7 +2637,7 @@ class GPUModelRunner(
 
         if self.supports_mm_inputs and is_first_rank and not is_encoder_decoder:
             # Run the multimodal encoder if any.
-            logger.info(f"SxlAdd: [GPUModelRunner._prepare_inputs] Processing multimodal inputs")
+            logger.info(f"SxlAdd: [GPUModelRunner._prepare_inputs] 【多模态处理流程】开始处理多模态输入")
             with self.maybe_get_ec_connector_output(
                 scheduler_output,
                 encoder_cache=self.encoder_cache,
@@ -2637,20 +2645,20 @@ class GPUModelRunner(
                 self._execute_mm_encoder(scheduler_output)
                 mm_embeds, is_mm_embed = self._gather_mm_embeddings(scheduler_output)
             
-            logger.info(f"SxlAdd: [GPUModelRunner._prepare_inputs] Gathered {len(mm_embeds)} multimodal embeddings")
-            logger.info(f"SxlAdd: [GPUModelRunner._prepare_inputs] is_mm_embed shape: {is_mm_embed.shape}, sum: {is_mm_embed.sum().item()}")
-            logger.info(f"SxlAdd: [GPUModelRunner._prepare_inputs] input_ids shape: {self.input_ids.gpu[:num_scheduled_tokens].shape}")
+            logger.info(f"SxlAdd: [GPUModelRunner._prepare_inputs] 【多模态处理流程】收集到 {len(mm_embeds)} 个多模态嵌入")
+            logger.info(f"SxlAdd: [GPUModelRunner._prepare_inputs] 【多模态处理流程】is_mm_embed形状: {is_mm_embed.shape}, 多模态token数量: {is_mm_embed.sum().item()}")
+            logger.info(f"SxlAdd: [GPUModelRunner._prepare_inputs] 【多模态处理流程】input_ids形状: {self.input_ids.gpu[:num_scheduled_tokens].shape}")
 
             # NOTE(woosuk): To unify token ids and soft tokens (vision
             # embeddings), we always use embeddings (rather than token ids)
             # as input to the multimodal model, even when the input is text.
-            logger.info(f"SxlAdd: [GPUModelRunner._prepare_inputs] Calling embed_input_ids to merge text and multimodal embeddings")
+            logger.info(f"SxlAdd: [GPUModelRunner._prepare_inputs] 【多模态处理流程】调用embed_input_ids合并文本和多模态嵌入")
             inputs_embeds_scheduled = self.model.embed_input_ids(
                 self.input_ids.gpu[:num_scheduled_tokens],
                 multimodal_embeddings=mm_embeds,
                 is_multimodal=is_mm_embed,
             )
-            logger.info(f"SxlAdd: [GPUModelRunner._prepare_inputs] embed_input_ids completed, output shape: {inputs_embeds_scheduled.shape}")
+            logger.info(f"SxlAdd: [GPUModelRunner._prepare_inputs] 【多模态处理流程】embed_input_ids完成，输出形状: {inputs_embeds_scheduled.shape}")
 
             # TODO(woosuk): Avoid the copy. Optimize.
             self.inputs_embeds.gpu[:num_scheduled_tokens].copy_(inputs_embeds_scheduled)
@@ -2863,6 +2871,9 @@ class GPUModelRunner(
                 f"{self.max_model_len}"
             )
 
+            # 日志：新token存储
+            logger.info(f"SxlAdd: [GPUModelRunner._bookkeeping_sync] 【生成流程】存储新生成的token到请求 {req_id}，存储位置：start_idx={start_idx}, end_idx={end_idx}，生成的token：{sampled_ids}")
+            
             self.input_batch.token_ids_cpu[req_idx, start_idx:end_idx] = sampled_ids
             self.input_batch.is_token_ids[req_idx, start_idx:end_idx] = True
             self.input_batch.num_tokens_no_spec[req_idx] = end_idx
@@ -3295,6 +3306,9 @@ class GPUModelRunner(
             record_function_or_nullcontext("gpu_model_runner: forward"),
             self.maybe_get_kv_connector_output(scheduler_output) as kv_connector_output,
         ):
+            # 日志：模型前向传播
+            logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】将输入喂给模型，input_ids形状：{input_ids.shape if input_ids is not None else 'None'}，inputs_embeds形状：{inputs_embeds.shape if inputs_embeds is not None else 'None'}")
+            
             model_output = self._model_forward(
                 input_ids=input_ids,
                 positions=positions,
@@ -3302,6 +3316,8 @@ class GPUModelRunner(
                 inputs_embeds=inputs_embeds,
                 **model_kwargs,
             )
+            
+            logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】模型前向传播完成")
 
         with record_function_or_nullcontext("gpu_model_runner: postprocess"):
             if self.use_aux_hidden_state_outputs:

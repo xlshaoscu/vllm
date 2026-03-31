@@ -448,19 +448,19 @@ def _merge_multimodal_embeddings(
     Note:
         This updates `inputs_embeds` in place.
     """
-    logger.info(f"SxlAdd: [_merge_multimodal_embeddings] Starting merge - inputs_embeds shape: {inputs_embeds.shape}, dtype: {inputs_embeds.dtype}")
-    logger.info(f"SxlAdd: [_merge_multimodal_embeddings] Number of multimodal embeddings: {len(multimodal_embeddings)}")
+    logger.info(f"SxlAdd: [_merge_multimodal_embeddings] 【多模态融合流程】开始融合 - inputs_embeds形状: {inputs_embeds.shape}, 数据类型: {inputs_embeds.dtype}")
+    logger.info(f"SxlAdd: [_merge_multimodal_embeddings] 【多模态融合流程】多模态嵌入数量: {len(multimodal_embeddings)}")
     
     if len(multimodal_embeddings) == 0:
-        logger.info(f"SxlAdd: [_merge_multimodal_embeddings] No multimodal embeddings to merge, returning original inputs_embeds")
+        logger.info(f"SxlAdd: [_merge_multimodal_embeddings] 【多模态融合流程】无多模态嵌入需要融合，返回原始inputs_embeds")
         return inputs_embeds
 
     mm_embeds_flat = _flatten_embeddings(multimodal_embeddings)
     input_dtype = inputs_embeds.dtype
     
-    logger.info(f"SxlAdd: [_merge_multimodal_embeddings] Flattened multimodal embeddings shape: {mm_embeds_flat.shape}")
-    logger.info(f"SxlAdd: [_merge_multimodal_embeddings] is_multimodal shape: {is_multimodal.shape}, sum: {is_multimodal.sum().item()}")
-    logger.info(f"SxlAdd: [_merge_multimodal_embeddings] Number of multimodal tokens to insert: {len(mm_embeds_flat)}")
+    logger.info(f"SxlAdd: [_merge_multimodal_embeddings] 【多模态融合流程】扁平化后的多模态嵌入形状: {mm_embeds_flat.shape}")
+    logger.info(f"SxlAdd: [_merge_multimodal_embeddings] 【多模态融合流程】is_multimodal形状: {is_multimodal.shape}, 多模态token数量: {is_multimodal.sum().item()}")
+    logger.info(f"SxlAdd: [_merge_multimodal_embeddings] 【多模态融合流程】需要插入的多模态token数量: {len(mm_embeds_flat)}")
 
     try:
         # For debugging
@@ -468,12 +468,12 @@ def _merge_multimodal_embeddings(
 
         # NOTE: This can avoid D2H sync (#22105), but fails to
         # raise an error if is_multimodal.sum() < len(mm_embeds_flat)
-        logger.info(f"SxlAdd: [_merge_multimodal_embeddings] Merging multimodal embeddings into text embeddings...")
+        logger.info(f"SxlAdd: [_merge_multimodal_embeddings] 【多模态融合流程】正在将多模态嵌入融合到文本嵌入中...")
         inputs_embeds.masked_scatter_(
             is_multimodal.unsqueeze(-1), mm_embeds_flat.to(dtype=input_dtype)
         )
-        logger.info(f"SxlAdd: [_merge_multimodal_embeddings] Merge completed successfully")
-        logger.info(f"SxlAdd: [_merge_multimodal_embeddings] First 3 values of merged embeddings at position 0: {inputs_embeds[0, :3]}")
+        logger.info(f"SxlAdd: [_merge_multimodal_embeddings] 【多模态融合流程】融合成功完成")
+        logger.info(f"SxlAdd: [_merge_multimodal_embeddings] 【多模态融合流程】位置0处融合后嵌入的前3个值: {inputs_embeds[0, :3]}")
     except RuntimeError as e:
         num_actual_tokens = len(mm_embeds_flat)
         num_expected_tokens = is_multimodal.sum().item()

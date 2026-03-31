@@ -965,15 +965,15 @@ class Qwen2_5_VLMultiModalProcessor(Qwen2VLMultiModalProcessor):
         tokenizer = self.info.get_tokenizer()
         vocab = tokenizer.get_vocab()
 
-        logger.info(f"SxlAdd: [Qwen2_5_VLMultiModalProcessor._get_prompt_updates] Processor type: {type(hf_processor).__name__}")
-        logger.info(f"SxlAdd: [Qwen2_5_VLMultiModalProcessor._get_prompt_updates] Image token: {hf_processor.image_token}, Video token: {hf_processor.video_token}")
-        logger.info(f"SxlAdd: [Qwen2_5_VLMultiModalProcessor._get_prompt_updates] Vocab size: {len(vocab)}")
+        logger.info(f"SxlAdd: [Qwen2_5_VLMultiModalProcessor._get_prompt_updates] 【多模态处理流程】处理器类型: {type(hf_processor).__name__}")
+        logger.info(f"SxlAdd: [Qwen2_5_VLMultiModalProcessor._get_prompt_updates] 【多模态处理流程】图像token: {hf_processor.image_token}, 视频token: {hf_processor.video_token}")
+        logger.info(f"SxlAdd: [Qwen2_5_VLMultiModalProcessor._get_prompt_updates] 【多模态处理流程】词汇表大小: {len(vocab)}")
 
         placeholder = {
             "image": vocab[hf_processor.image_token],
             "video": vocab[hf_processor.video_token],
         }
-        logger.info(f"SxlAdd: [Qwen2_5_VLMultiModalProcessor._get_prompt_updates] Placeholder token IDs - image: {placeholder['image']}, video: {placeholder['video']}")
+        logger.info(f"SxlAdd: [Qwen2_5_VLMultiModalProcessor._get_prompt_updates] 【多模态处理流程】占位符token ID - 图像: {placeholder['image']}, 视频: {placeholder['video']}")
 
         merge_length = image_processor.merge_size**2
 
@@ -1276,39 +1276,38 @@ class Qwen2_5_VLForConditionalGeneration(
         assert grid_thw.ndim == 2
         grid_thw_list = grid_thw.tolist()
 
-        logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Processing image input of type: {image_input['type']}")
-        logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Image grid THW: {grid_thw_list}")
+        logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] 【图像处理流程】处理类型为 {image_input['type']} 的图像输入")
+        logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] 【图像处理流程】图像网格THW: {grid_thw_list}")
 
         if image_input["type"] == "image_embeds":
             image_embeds = image_input["image_embeds"].type(self.visual.dtype)
-            logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Using pre-computed image embeds with shape: {image_embeds.shape}")
+            logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] 【图像处理流程】使用预计算的图像嵌入，形状: {image_embeds.shape}")
         else:
             pixel_values = image_input["pixel_values"]
-            logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Processing pixel values with shape: {pixel_values.shape}")
+            logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] 【图像处理流程】处理像素值，形状: {pixel_values.shape}")
             with set_forward_context(None, self.vllm_config):
                 if self.use_data_parallel:
-                    logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Using data parallel processing")
+                    logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] 【图像处理流程】使用数据并行处理")
                     result = run_dp_sharded_mrope_vision_model(
                         self.visual, pixel_values, grid_thw_list, rope_type="rope_3d"
                     )
-                    logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Data parallel processing completed, got {len(result)} embeddings")
+                    logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] 【图像处理流程】数据并行处理完成，获得 {len(result)} 个嵌入")
                     return result
                 else:
-                    logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Using single GPU processing")
+                    logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] 【图像处理流程】使用单GPU处理")
                     image_embeds = self.visual(pixel_values, grid_thw=grid_thw_list)
-                    logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Visual encoder output shape: {image_embeds.shape}")
+                    logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] 【图像处理流程】视觉编码器输出形状: {image_embeds.shape}")
 
         # Split concatenated embeddings for each image item.
         merge_size = self.visual.spatial_merge_size
         sizes = (grid_thw.prod(-1) // merge_size // merge_size).tolist()
-        logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Splitting embeddings into sizes: {sizes}")
-        split_embeds = image_embeds.split(sizes)
-        logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Split into {len(split_embeds)} embeddings")
+        logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] 【图像处理流程】将嵌入分割为大小: {sizes}")
+        logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] 【图像处理流程】分割为 {len(split_embeds)} 个嵌入")
         
         # 打印每个图像 embedding 的详细信息
         for i, embed in enumerate(split_embeds):
-            logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Image {i} embedding - Shape: {embed.shape}, Dtype: {embed.dtype}, Device: {embed.device}")
-            logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] Image {i} embedding - First 3 values: {embed[0, :3] if embed.numel() > 3 else embed[0]}")
+            logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] 【图像处理流程】图像 {i} 嵌入 - 形状: {embed.shape}, 数据类型: {embed.dtype}, 设备: {embed.device}")
+            logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] 【图像处理流程】图像 {i} 嵌入 - 前3个值: {embed[0, :3] if embed.numel() > 3 else embed[0]}")
         
         return split_embeds
 
@@ -1560,15 +1559,15 @@ class Qwen2_5_VLForConditionalGeneration(
                 otherwise it will be `(seq_len,).
         """
 
-        logger.info(f"SxlAdd: Qwen2_5_VLForConditionalGeneration.forward - Input shape: {input_ids.shape if input_ids is not None else 'None'}")
-        logger.info(f"SxlAdd: Qwen2_5_VLForConditionalGeneration.forward - Positions shape: {positions.shape}")
-        logger.info(f"SxlAdd: Qwen2_5_VLForConditionalGeneration.forward - Inputs embeds shape: {inputs_embeds.shape if inputs_embeds is not None else 'None'}")
+        logger.info(f"SxlAdd: 【模型推理流程】Qwen2_5_VLForConditionalGeneration.forward - 输入形状: {input_ids.shape if input_ids is not None else 'None'}")
+        logger.info(f"SxlAdd: 【模型推理流程】Qwen2_5_VLForConditionalGeneration.forward - 位置形状: {positions.shape}")
+        logger.info(f"SxlAdd: 【模型推理流程】Qwen2_5_VLForConditionalGeneration.forward - 输入嵌入形状: {inputs_embeds.shape if inputs_embeds is not None else 'None'}")
         
         if intermediate_tensors is not None:
-            logger.info(f"SxlAdd: Qwen2_5_VLForConditionalGeneration.forward - Using intermediate tensors")
+            logger.info(f"SxlAdd: 【模型推理流程】Qwen2_5_VLForConditionalGeneration.forward - 使用中间张量")
             inputs_embeds = None
 
-        logger.info(f"SxlAdd: Qwen2_5_VLForConditionalGeneration.forward - Calling language model forward pass")
+        logger.info(f"SxlAdd: 【模型推理流程】Qwen2_5_VLForConditionalGeneration.forward - 调用语言模型前向传播")
         hidden_states = self.language_model.model(
             input_ids=input_ids,
             positions=positions,
@@ -1576,7 +1575,7 @@ class Qwen2_5_VLForConditionalGeneration(
             inputs_embeds=inputs_embeds,
         )
         
-        logger.info(f"SxlAdd: Qwen2_5_VLForConditionalGeneration.forward - Language model output shape: {hidden_states.shape if hasattr(hidden_states, 'shape') else 'N/A'}")
+        logger.info(f"SxlAdd: 【模型推理流程】Qwen2_5_VLForConditionalGeneration.forward - 语言模型输出形状: {hidden_states.shape if hasattr(hidden_states, 'shape') else 'N/A'}")
         return hidden_states
 
     def compute_logits(

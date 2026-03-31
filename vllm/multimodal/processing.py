@@ -206,9 +206,9 @@ def _cached_encode(
     *,
     add_special_tokens: bool = True,
 ) -> list[int]:
-    logger.info(f"SxlAdd: Encoding text: '{text[:50]}'{'...' if len(text) > 50 else ''}")
+    logger.info(f"SxlAdd: 【文本处理流程】编码文本: '{text[:50]}'{'...' if len(text) > 50 else ''}")
     token_ids = tokenizer.encode(text, add_special_tokens=add_special_tokens)
-    logger.info(f"SxlAdd: Encoded to token IDs: {token_ids[:10]}{'...' if len(token_ids) > 10 else ''}")
+    logger.info(f"SxlAdd: 【文本处理流程】编码为token ID: {token_ids[:10]}{'...' if len(token_ids) > 10 else ''}")
     return token_ids
 
 
