@@ -2350,6 +2350,20 @@ class GPUModelRunner(
         # 日志：输入token
         input_tokens = self.input_ids.gpu[:total_num_scheduled_tokens]
         logger.info(f"SxlAdd: [GPUModelRunner._gather_mm_embeddings] 【多模态处理流程】开始收集多模态嵌入，当前输入的token序列：{input_tokens.tolist()}")
+        
+        # 尝试获取tokenizer并转换为字符串
+        try:
+            # 获取tokenizer
+            if hasattr(self, 'tokenizer') and self.tokenizer is not None:
+                token_strings = self.tokenizer.decode(input_tokens.tolist(), skip_special_tokens=False)
+                logger.info(f"SxlAdd: [GPUModelRunner._gather_mm_embeddings] 【多模态处理流程】输入token对应的字符串：'{token_strings}'")
+            elif hasattr(self, 'model') and hasattr(self.model, 'tokenizer') and self.model.tokenizer is not None:
+                token_strings = self.model.tokenizer.decode(input_tokens.tolist(), skip_special_tokens=False)
+                logger.info(f"SxlAdd: [GPUModelRunner._gather_mm_embeddings] 【多模态处理流程】输入token对应的字符串：'{token_strings}'")
+            else:
+                logger.info(f"SxlAdd: [GPUModelRunner._gather_mm_embeddings] 【多模态处理流程】无法获取tokenizer，无法转换为字符串")
+        except Exception as e:
+            logger.info(f"SxlAdd: [GPUModelRunner._gather_mm_embeddings] 【多模态处理流程】转换token为字符串时出错：{e}")
 
         mm_embeds = list[torch.Tensor]()
         is_mm_embed = is_mm_embed_buf.cpu
