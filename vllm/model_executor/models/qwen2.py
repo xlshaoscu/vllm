@@ -419,6 +419,18 @@ class Qwen2Model(nn.Module):
         logger.info(f"SxlAdd: 【Token嵌入流程】嵌入input_ids形状: {input_ids.shape}, 数据类型: {input_ids.dtype}")
         logger.info(f"SxlAdd: 【Token嵌入流程】前5个input_ids: {input_ids[:5] if input_ids.numel() > 5 else input_ids}")
         
+        # 尝试从模型配置中获取tokenizer并转换token ID为字符串
+        try:
+            # 检查是否有tokenizer可用
+            if hasattr(self, 'tokenizer') and self.tokenizer is not None:
+                # 转换前5个token ID为字符串
+                sample_token_ids = input_ids[:5].tolist() if input_ids.numel() > 5 else input_ids.tolist()
+                token_strings = self.tokenizer.convert_ids_to_tokens(sample_token_ids)
+                logger.info(f"SxlAdd: 【Token嵌入流程】前5个token字符串: {token_strings}")
+        except Exception as e:
+            # 不强制要求tokenizer存在，静默处理错误
+            pass
+        
         hidden_states = self.embed_tokens(input_ids)
         
         logger.info(f"SxlAdd: 【Token嵌入流程】嵌入后hidden_states形状: {hidden_states.shape}, 数据类型: {hidden_states.dtype}")
