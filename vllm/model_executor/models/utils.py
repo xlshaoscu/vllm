@@ -469,10 +469,17 @@ def _merge_multimodal_embeddings(
         # NOTE: This can avoid D2H sync (#22105), but fails to
         # raise an error if is_multimodal.sum() < len(mm_embeds_flat)
         logger.info(f"SxlAdd: [_merge_multimodal_embeddings] 【多模态融合流程】正在将多模态嵌入融合到文本嵌入中...")
+        logger.info(f"SxlAdd: [_merge_multimodal_embeddings] 【多模态融合流程】融合前inputs_embeds形状: {inputs_embeds.shape}")
+        logger.info(f"SxlAdd: [_merge_multimodal_embeddings] 【多模态融合流程】mm_embeds_flat形状: {mm_embeds_flat.shape}")
+        logger.info(f"SxlAdd: [_merge_multimodal_embeddings] 【多模态融合流程】is_multimodal.unsqueeze(-1)形状: {is_multimodal.unsqueeze(-1).shape}")
+        
+        # 执行融合操作：将掩码位置的嵌入替换为图像特征
         inputs_embeds.masked_scatter_(
             is_multimodal.unsqueeze(-1), mm_embeds_flat.to(dtype=input_dtype)
         )
+        
         logger.info(f"SxlAdd: [_merge_multimodal_embeddings] 【多模态融合流程】融合成功完成")
+        logger.info(f"SxlAdd: [_merge_multimodal_embeddings] 【多模态融合流程】融合后inputs_embeds形状: {inputs_embeds.shape}")
         logger.info(f"SxlAdd: [_merge_multimodal_embeddings] 【多模态融合流程】位置0处融合后嵌入的前3个值: {inputs_embeds[0, :3]}")
     except RuntimeError as e:
         num_actual_tokens = len(mm_embeds_flat)
