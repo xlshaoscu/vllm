@@ -220,15 +220,20 @@ class InputPreprocessor:
         Apply the model's tokenizer to a text prompt, returning the
         corresponding token IDs.
         """
+        logger.info(f"[SxlAdd] 开始编码文本提示")
         tokenizer = self.get_tokenizer()
         tokenization_kwargs = self._get_tokenization_kw(tokenization_kwargs)
+        logger.info(f"[SxlAdd] 获取tokenizer完成，使用参数: {tokenization_kwargs}")
 
         encoder_config = self.model_config.encoder_config
 
         if encoder_config and encoder_config.get("do_lower_case", False):
+            logger.info(f"[SxlAdd] 执行小写转换")
             prompt = prompt.lower()
 
-        return tokenizer.encode(prompt, **tokenization_kwargs)
+        token_ids = tokenizer.encode(prompt, **tokenization_kwargs)
+        logger.info(f"[SxlAdd] 文本编码完成，token数量: {len(token_ids)}")
+        return token_ids
 
     def _get_mm_processor(self) -> BaseMultiModalProcessor:
         if not hasattr(self, "_mm_processor"):
@@ -254,11 +259,14 @@ class InputPreprocessor:
         Apply the model's multi-modal processor to a multi-modal prompt,
         returning the corresponding token IDs and metadata.
         """
+        logger.info(f"[SxlAdd] 开始处理多模态提示")
         mm_processor = self._get_mm_processor()
+        logger.info(f"[SxlAdd] 获取多模态处理器完成")
 
         if mm_processor_kwargs is None:
             mm_processor_kwargs = {}
 
+        logger.info(f"[SxlAdd] 应用多模态处理器")
         mm_input = mm_processor.apply(
             prompt,
             mm_data,
@@ -266,6 +274,7 @@ class InputPreprocessor:
             tokenization_kwargs=tokenization_kwargs,
             mm_uuids=mm_uuids,
         )
+        logger.info(f"[SxlAdd] 多模态处理器应用完成")
         mm_hashes = mm_input["mm_hashes"]
 
         # Validate that all mm items have a string as their hash
@@ -279,25 +288,30 @@ class InputPreprocessor:
                 "MultiModalProcessor.apply method."
             )
 
+        logger.info(f"[SxlAdd] 多模态提示处理完成")
         return mm_input
 
     def _process_embeds(
         self,
         parsed_content: EmbedsPrompt,
     ) -> EmbedsInputs:
+        logger.info(f"[SxlAdd] 开始处理嵌入提示")
         if not self.model_config.enable_prompt_embeds:
             raise ValueError(
                 "You must set `--enable-prompt-embeds` to input `prompt_embeds`."
             )
 
         prompt_embeds = parsed_content["prompt_embeds"]
+        logger.info(f"[SxlAdd] 嵌入形状: {prompt_embeds.shape}")
 
         # prompt_embeds must be (seq_len, hidden_size), but if the user
         # passes in a batch of size 1, i.e. (1, seq_len, hidden_size),
         # we can unambiguously process the intent by squeezing the batch
         # dimension.
         if prompt_embeds.ndim == 3:
+            logger.info(f"[SxlAdd] 嵌入维度为3，进行压缩")
             prompt_embeds = prompt_embeds.squeeze(dim=0)
+            logger.info(f"[SxlAdd] 压缩后形状: {prompt_embeds.shape}")
 
         if prompt_embeds.ndim != 2:
             raise ValueError("prompt_embeds must be of shape (seq_len, hidden_size).")
@@ -305,11 +319,14 @@ class InputPreprocessor:
         # Tensors must be on CPU for serialization between processes
         # in the MsgpackEncoder. Casting to CPU here ensures that there is no
         # hidden device transfer in the critical path of generation.
+        logger.info(f"[SxlAdd] 将嵌入移至CPU")
         prompt_embeds = prompt_embeds.cpu()
 
-        return embeds_inputs(
+        result = embeds_inputs(
             prompt_embeds=prompt_embeds, cache_salt=parsed_content.get("cache_salt")
         )
+        logger.info(f"[SxlAdd] 嵌入提示处理完成")
+        return result
 
     def _truncate_inputs(
         self, inputs: list[int], tokenization_kwargs: dict[str, Any] | None = None
@@ -335,12 +352,16 @@ class InputPreprocessor:
         *,
         mm_uuids: MultiModalUUIDDict | None = None,
     ) -> TokenInputs | MultiModalInputs:
+        prompt_token_ids = parsed_content["prompt_token_ids"]
+        logger.info(f"[SxlAdd] 开始处理token提示，原始token数量: {len(prompt_token_ids)}")
         prompt_token_ids = self._truncate_inputs(
-            parsed_content["prompt_token_ids"], tokenization_kwargs
+            prompt_token_ids, tokenization_kwargs
         )
+        logger.info(f"[SxlAdd] token截断完成，数量: {len(prompt_token_ids)}")
 
         inputs: TokenInputs | MultiModalInputs
         if multi_modal_data := parsed_content.get("multi_modal_data"):
+            logger.info(f"[SxlAdd] token提示包含多模态数据")
             inputs = self._process_multimodal(
                 prompt_token_ids,
                 multi_modal_data,
@@ -349,11 +370,14 @@ class InputPreprocessor:
                 mm_uuids=mm_uuids,
             )
         else:
+            logger.info(f"[SxlAdd] 处理纯token提示")
             inputs = token_inputs(prompt_token_ids)
 
         if cache_salt := parsed_content.get("cache_salt"):
             inputs["cache_salt"] = cache_salt
+            logger.info(f"[SxlAdd] 添加缓存盐值")
 
+        logger.info(f"[SxlAdd] token提示处理完成，返回类型: {type(inputs).__name__}")
         return inputs
 
     def _process_text(
@@ -364,9 +388,11 @@ class InputPreprocessor:
         mm_uuids: MultiModalUUIDDict | None = None,
     ) -> TokenInputs | MultiModalInputs:
         prompt_text = parsed_content["prompt"]
+        logger.info(f"[SxlAdd] 开始处理文本提示，长度: {len(prompt_text)}, 内容: {prompt_text[:50]}...")
 
         inputs: TokenInputs | MultiModalInputs
         if multi_modal_data := parsed_content.get("multi_modal_data"):
+            logger.info(f"[SxlAdd] 文本提示包含多模态数据")
             inputs = self._process_multimodal(
                 prompt_text,
                 multi_modal_data,
@@ -375,15 +401,19 @@ class InputPreprocessor:
                 mm_uuids=mm_uuids,
             )
         else:
+            logger.info(f"[SxlAdd] 处理纯文本提示")
             prompt_token_ids = self._tokenize_prompt(
                 prompt_text,
                 tokenization_kwargs=tokenization_kwargs,
             )
+            logger.info(f"[SxlAdd] 文本编码完成，token数量: {len(prompt_token_ids)}")
             inputs = token_inputs(prompt_token_ids)
 
         if cache_salt := parsed_content.get("cache_salt"):
             inputs["cache_salt"] = cache_salt
+            logger.info(f"[SxlAdd] 添加缓存盐值")
 
+        logger.info(f"[SxlAdd] 文本提示处理完成，返回类型: {type(inputs).__name__}")
         return inputs
 
     def _prompt_to_llm_inputs(
@@ -404,22 +434,28 @@ class InputPreprocessor:
 
         * [`SingletonInputs`][vllm.inputs.data.SingletonInputs] instance
         """
+        logger.info(f"[SxlAdd] 开始转换提示为LLM输入")
         parsed = parse_singleton_prompt(prompt)
+        logger.info(f"[SxlAdd] 提示解析完成，类型: {parsed['type']}")
 
         if parsed["type"] == "embeds":
+            logger.info(f"[SxlAdd] 处理嵌入提示")
             return self._process_embeds(parsed["content"])
         if parsed["type"] == "tokens":
+            logger.info(f"[SxlAdd] 处理token提示")
             return self._process_tokens(
                 parsed["content"],
                 mm_uuids=mm_uuids,
             )
         if parsed["type"] == "text":
+            logger.info(f"[SxlAdd] 处理文本提示")
             return self._process_text(
                 parsed["content"],
                 tokenization_kwargs=tokenization_kwargs,
                 mm_uuids=mm_uuids,
             )
         if parsed["type"] == "str":
+            logger.info(f"[SxlAdd] 处理字符串提示")
             return self._process_text(
                 TextPrompt(prompt=parsed["content"]),
                 tokenization_kwargs=tokenization_kwargs,
@@ -574,43 +610,56 @@ class InputPreprocessor:
         * [`EncoderDecoderInputs`][vllm.inputs.data.EncoderDecoderInputs]
           instance
         """
+        logger.info(f"[SxlAdd] 开始处理encoder-decoder模型提示")
         encoder_inputs: SingletonInputs
         decoder_inputs: SingletonInputs | None
         if is_explicit_encoder_decoder_prompt(prompt):
             # `cast` is needed for mypy, but not pyright
             prompt_ = cast(ExplicitEncoderDecoderPrompt, prompt)
+            logger.info(f"[SxlAdd] 处理显式encoder-decoder提示")
             encoder_inputs = self._prompt_to_llm_inputs(
                 prompt_["encoder_prompt"],
                 tokenization_kwargs=tokenization_kwargs,
                 mm_uuids=mm_uuids,
             )
+            logger.info(f"[SxlAdd] 编码器提示处理完成")
             if (decoder_input := prompt_["decoder_prompt"]) is None:
                 decoder_inputs = None
+                logger.info(f"[SxlAdd] 解码器提示为None")
             else:
                 decoder_inputs = self._prompt_to_llm_inputs(
                     decoder_input, tokenization_kwargs=tokenization_kwargs
                 )
+                logger.info(f"[SxlAdd] 解码器提示处理完成")
             # For multimodal model, override decoder prompt from processor
             # with explicit decoder prompt.
             if self.model_config.is_multimodal_model:
+                logger.info(f"[SxlAdd] 处理多模态encoder-decoder模型")
                 encoder_inputs, decoder_inputs = self._split_enc_dec_mm_inputs(
                     encoder_inputs, decoder_inputs
                 )
+                logger.info(f"[SxlAdd] 多模态输入分离完成")
         else:
             # `cast` is needed for mypy, but not pyright
+            logger.info(f"[SxlAdd] 处理单例提示")
             inputs = self._prompt_to_llm_inputs(
                 cast(SingletonPrompt, prompt),
                 tokenization_kwargs=tokenization_kwargs,
                 mm_uuids=mm_uuids,
             )
+            logger.info(f"[SxlAdd] 单例提示处理完成")
             if self.model_config.is_multimodal_model:
                 # Encoder-Decoder Multimodal model
+                logger.info(f"[SxlAdd] 处理多模态encoder-decoder模型")
                 encoder_inputs, decoder_inputs = self._split_enc_dec_mm_inputs(inputs)
+                logger.info(f"[SxlAdd] 多模态输入分离完成")
             else:
                 encoder_inputs = inputs
                 decoder_inputs = None
 
-        return self._build_enc_dec_llm_inputs(encoder_inputs, decoder_inputs)
+        result = self._build_enc_dec_llm_inputs(encoder_inputs, decoder_inputs)
+        logger.info(f"[SxlAdd] 构建encoder-decoder输入完成")
+        return result
 
     def _build_decoder_only_llm_inputs(
         self,
@@ -643,14 +692,16 @@ class InputPreprocessor:
 
         * [`DecoderOnlyInputs`][vllm.inputs.data.DecoderOnlyInputs] instance
         """
-
+        logger.info(f"[SxlAdd] 开始处理decoder-only模型提示")
         prompt_comps = self._prompt_to_llm_inputs(
             prompt,
             tokenization_kwargs=tokenization_kwargs,
             mm_uuids=mm_uuids,
         )
-
-        return self._build_decoder_only_llm_inputs(prompt_comps)
+        logger.info(f"[SxlAdd] 提示转换完成，结果类型: {type(prompt_comps).__name__}")
+        result = self._build_decoder_only_llm_inputs(prompt_comps)
+        logger.info(f"[SxlAdd] 构建decoder-only输入完成")
+        return result
 
     def _preprocess(
         self,
@@ -659,9 +710,11 @@ class InputPreprocessor:
         *,
         mm_uuids: MultiModalUUIDDict | None = None,
     ) -> ProcessorInputs:
+        logger.info(f"[SxlAdd] 开始预处理，模型类型: {'encoder-decoder' if self.model_config.is_encoder_decoder else 'decoder-only'}")
         if self.model_config.is_encoder_decoder:
             # Encoder-decoder model requires special mapping of
             # input prompts to encoder & decoder.
+            logger.info(f"[SxlAdd] 处理encoder-decoder模型提示")
             return self._process_encoder_decoder_prompt(
                 prompt,
                 tokenization_kwargs,
@@ -675,6 +728,7 @@ class InputPreprocessor:
 
         # Decoder-only operation
         # `cast` is needed for mypy, but not pyright
+        logger.info(f"[SxlAdd] 处理decoder-only模型提示")
         return self._process_decoder_only_prompt(
             cast(SingletonPrompt, prompt),
             tokenization_kwargs=tokenization_kwargs,
@@ -689,13 +743,16 @@ class InputPreprocessor:
         mm_uuids: MultiModalUUIDDict | None = None,
     ) -> ProcessorInputs:
         """Preprocess the input prompt."""
+        logger.info(f"[SxlAdd] 开始处理输入提示，提示类型: {type(prompt).__name__}")
         res = self._preprocess(prompt, tokenization_kwargs, mm_uuids=mm_uuids)
+        logger.info(f"[SxlAdd] 输入提示处理完成，返回类型: {type(res).__name__}")
 
         if self.mm_processor_cache and self.mm_cache_stats is not None:
             delta = self.mm_processor_cache.make_stats(delta=True)
             self.mm_cache_stats.requests += 1
             self.mm_cache_stats.queries += delta.total
             self.mm_cache_stats.hits += delta.hits
+            logger.info(f"[SxlAdd] 多模态缓存统计: 请求数={self.mm_cache_stats.requests}, 查询数={delta.total}, 命中数={delta.hits}")
 
         return res
 
