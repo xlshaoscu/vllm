@@ -226,6 +226,7 @@ class FastIncrementalDetokenizer(BaseIncrementalDetokenizer):
                 self.spaces_between_special_tokens = True
 
     def decode_next(self, next_token_id: int) -> str:
+        logger.exception(f"SxlAdd: 【Detokenizer使用】使用SlowIncrementalDetokenizer解码")
         token = self._protected_step(next_token_id)
 
         if not self.spaces_between_special_tokens:
@@ -304,6 +305,7 @@ class SlowIncrementalDetokenizer(BaseIncrementalDetokenizer):
         )
 
     def decode_next(self, next_token_id: int) -> str:
+        logger.exception(f"SxlAdd: 【Detokenizer使用】使用SlowIncrementalDetokenizer解码")
         new_tokens, decoded_text, prefix_offset, read_offset = detokenize_incrementally(
             tokenizer=self.tokenizer,
             all_input_ids=self.token_ids,
