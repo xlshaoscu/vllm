@@ -1302,6 +1302,7 @@ class Qwen2_5_VLForConditionalGeneration(
         merge_size = self.visual.spatial_merge_size
         sizes = (grid_thw.prod(-1) // merge_size // merge_size).tolist()
         logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] 【图像处理流程】将嵌入分割为大小: {sizes}")
+        split_embeds = image_embeds.split(sizes)
         logger.info(f"SxlAdd: [Qwen2_5_VLForConditionalGeneration._process_image_input] 【图像处理流程】分割为 {len(split_embeds)} 个嵌入")
         
         # 打印每个图像 embedding 的详细信息
