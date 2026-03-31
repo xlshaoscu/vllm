@@ -39,6 +39,10 @@ from .data import (
 )
 from .parse import is_explicit_encoder_decoder_prompt, parse_singleton_prompt
 
+
+from PIL import Image
+from qwen_vl_utils import process_vision_info
+
 logger = init_logger(__name__)
 
 
@@ -373,8 +377,31 @@ class InputPreprocessor:
         )
         logger.info(f"[SxlAdd] token截断完成，数量: {len(prompt_token_ids)}")
 
+        image_path = "/home/s00964975/00_Software/Rex-Omni/tutorials/detection_example/test_images/boys.jpg"
+        image = Image.open(image_path).convert("RGB")
+        prompt = f"Detect person. Output the bounding box coordinates in [x0, y0, x1, y1] format."
+        
+        messages = [
+            {"role": "system", "content": "You are a helpful assistant"},
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "image": image,
+                        "min_pixels": 16 * 28 * 28,
+                        "max_pixels": 256 * 28 * 28,
+                    },
+                    {"type": "text", "text": prompt}
+                ]
+            }
+        ]
+
+        image_inputs, _ = process_vision_info(messages)
+
         inputs: TokenInputs | MultiModalInputs
         if multi_modal_data := parsed_content.get("multi_modal_data"):
+            multi_modal_data = {"image": image_inputs}
             logger.info(f"[SxlAdd] token提示包含多模态数据")
             inputs = self._process_multimodal(
                 prompt_token_ids,
