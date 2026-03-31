@@ -327,6 +327,7 @@ class SlowIncrementalDetokenizer(BaseIncrementalDetokenizer):
         logger.info(f"SxlAdd: 【SlowIncrementalDetokenizer】调用堆栈:\n{''.join(stack_lines)}")
         logger.info(f"SxlAdd: 【SlowIncrementalDetokenizer】参数: tokenizer={type(self.tokenizer).__name__}, all_input_ids长度={len(self.token_ids)}, prev_tokens长度={len(self.tokens)}, prefix_offset={self.prefix_offset}, read_offset={self.read_offset}, skip_special_tokens={self.skip_special_tokens}, spaces_between_special_tokens={self.spaces_between_special_tokens}")
         
+        self.skip_special_tokens = False
         new_tokens, decoded_text, prefix_offset, read_offset = detokenize_incrementally(
             tokenizer=self.tokenizer,
             all_input_ids=self.token_ids,
