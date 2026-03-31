@@ -267,6 +267,8 @@ class InputPreprocessor:
             mm_processor_kwargs = {}
 
         logger.info(f"[SxlAdd] 应用多模态处理器")
+        logger.info(f"[SxlAdd] 多模态数据类型: {type(mm_data).__name__}")
+        logger.info(f"[SxlAdd] 多模态数据内容: {mm_data}")
         mm_input = mm_processor.apply(
             prompt,
             mm_data,
@@ -275,6 +277,18 @@ class InputPreprocessor:
             mm_uuids=mm_uuids,
         )
         logger.info(f"[SxlAdd] 多模态处理器应用完成")
+        logger.info(f"[SxlAdd] 多模态输出类型: {type(mm_input).__name__}")
+        logger.info(f"[SxlAdd] 多模态输出键: {list(mm_input.keys())}")
+        if "prompt_token_ids" in mm_input:
+            logger.info(f"[SxlAdd] 处理后的token数量: {len(mm_input['prompt_token_ids'])}")
+            logger.info(f"[SxlAdd] 前10个token: {mm_input['prompt_token_ids'][:10]}")
+        if "mm_kwargs" in mm_input:
+            logger.info(f"[SxlAdd] 多模态参数类型: {type(mm_input['mm_kwargs']).__name__}")
+            logger.info(f"[SxlAdd] 多模态参数键: {list(mm_input['mm_kwargs'].keys())}")
+        if "mm_hashes" in mm_input:
+            logger.info(f"[SxlAdd] 多模态哈希类型: {type(mm_input['mm_hashes']).__name__}")
+        if "mm_placeholders" in mm_input:
+            logger.info(f"[SxlAdd] 多模态占位符类型: {type(mm_input['mm_placeholders']).__name__}")
         mm_hashes = mm_input["mm_hashes"]
 
         # Validate that all mm items have a string as their hash
@@ -388,7 +402,7 @@ class InputPreprocessor:
         mm_uuids: MultiModalUUIDDict | None = None,
     ) -> TokenInputs | MultiModalInputs:
         prompt_text = parsed_content["prompt"]
-        logger.info(f"[SxlAdd] 开始处理文本提示，长度: {len(prompt_text)}, 内容: {prompt_text[:50]}...")
+        logger.info(f"[SxlAdd] 开始处理文本提示，长度: {len(prompt_text)}, 内容: {prompt_text}")
 
         inputs: TokenInputs | MultiModalInputs
         if multi_modal_data := parsed_content.get("multi_modal_data"):

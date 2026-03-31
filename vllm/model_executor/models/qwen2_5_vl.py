@@ -803,6 +803,9 @@ class Qwen2_5_VisionTransformer(nn.Module):
     ) -> torch.Tensor:
         # patchify
         seq_len, _ = x.size()
+        logger.info(f"[SxlAdd] 视觉编码器输入形状: {x.shape}, 数据类型: {x.dtype}, 设备: {x.device}")
+        logger.info(f"[SxlAdd] 图像网格信息: {grid_thw}")
+        
         rotary_pos_emb_cos = []
         rotary_pos_emb_sin = []
         window_index: list = []
@@ -810,7 +813,10 @@ class Qwen2_5_VisionTransformer(nn.Module):
         cu_seqlens: list = []
 
         hidden_states = x.to(device=self.device, dtype=self.dtype)
+        logger.info(f"[SxlAdd] 输入移至设备: {self.device}, 数据类型: {self.dtype}")
+        
         hidden_states = self.patch_embed(hidden_states)
+        logger.info(f"[SxlAdd] 补丁嵌入后形状: {hidden_states.shape}")
 
         window_index_id = 0
         cu_window_seqlens_last = 0
@@ -875,14 +881,17 @@ class Qwen2_5_VisionTransformer(nn.Module):
         hidden_states = hidden_states.reshape(seq_len, -1)
 
         hidden_states = hidden_states.unsqueeze(1)
+        logger.info(f"[SxlAdd] 进入Transformer块前形状: {hidden_states.shape}")
 
         for layer_num, blk in enumerate(self.blocks):
             if layer_num in self.fullatt_block_indexes:
                 cu_seqlens_now = cu_seqlens
                 max_seqlen_now = max_seqlen_full
+                logger.info(f"[SxlAdd] 第 {layer_num} 层使用全注意力，最大序列长度: {max_seqlen_now}")
             else:
                 cu_seqlens_now = cu_window_seqlens
                 max_seqlen_now = max_seqlen_window
+                logger.info(f"[SxlAdd] 第 {layer_num} 层使用窗口注意力，最大序列长度: {max_seqlen_now}")
 
             hidden_states = blk(
                 hidden_states,
@@ -891,15 +900,25 @@ class Qwen2_5_VisionTransformer(nn.Module):
                 rotary_pos_emb_sin=rotary_pos_emb_sin,
                 max_seqlen=max_seqlen_now,
             )
+            logger.info(f"[SxlAdd] 第 {layer_num} 层输出形状: {hidden_states.shape}")
 
         # For Qwen2.5-VL-3B, float16 will overflow at last block
         # for long visual tokens sequences.
         if hidden_states.dtype == torch.float16:
+            logger.info(f"[SxlAdd] 检测到float16数据类型，执行溢出张量转换")
             hidden_states = cast_overflow_tensors(hidden_states)
+            logger.info(f"[SxlAdd] 转换后数据类型: {hidden_states.dtype}")
 
         # adapter
+        logger.info(f"[SxlAdd] 进入合并器前形状: {hidden_states.shape}")
         hidden_states = self.merger(hidden_states)
+        logger.info(f"[SxlAdd] 合并器输出形状: {hidden_states.shape}")
+        
+        logger.info(f"[SxlAdd] 应用反向索引前形状: {hidden_states.shape}")
         hidden_states = hidden_states[reverse_indices, :]
+        logger.info(f"[SxlAdd] 视觉编码器最终输出形状: {hidden_states.shape}")
+        logger.info(f"[SxlAdd] 视觉编码器输出数据类型: {hidden_states.dtype}")
+        logger.info(f"[SxlAdd] 视觉编码器输出设备: {hidden_states.device}")
         return hidden_states
 
     def load_weights(self, weights: Iterable[tuple[str, torch.Tensor]]) -> set[str]:
