@@ -538,11 +538,10 @@ class InputProcessor:
         # 打印输入token对应的字符串
         if prompt_token_ids is not None and self.tokenizer is not None:
             try:
-                # 转换前10个token ID为字符串，避免日志过长
-                sample_token_ids = prompt_token_ids[:10]
-                token_strings = self.tokenizer.convert_ids_to_tokens(sample_token_ids)
-                logger.info(f"SxlAdd: 【输入Token解析】前10个token ID: {sample_token_ids}")
-                logger.info(f"SxlAdd: 【输入Token解析】前10个token字符串: {token_strings}")
+                # 转换所有token ID为字符串
+                token_strings = self.tokenizer.convert_ids_to_tokens(prompt_token_ids)
+                logger.info(f"SxlAdd: 【输入Token解析】所有token ID: {prompt_token_ids}")
+                logger.info(f"SxlAdd: 【输入Token解析】所有token字符串: {token_strings}")
                 logger.info(f"SxlAdd: 【输入Token解析】总token数量: {len(prompt_token_ids)}")
             except Exception as e:
                 logger.error(f"SxlAdd: 【输入Token解析】转换token ID为字符串时出错: {e}")
