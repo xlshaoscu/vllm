@@ -3143,13 +3143,17 @@ class GPUModelRunner(
         scheduler_output: "SchedulerOutput",
         intermediate_tensors: IntermediateTensors | None = None,
     ) -> ModelRunnerOutput | AsyncModelRunnerOutput | IntermediateTensors | None:
+        logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】开始执行模型推理")
+        
         if self.execute_model_state is not None:
+            logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】执行状态不为None，抛出异常")
             raise RuntimeError(
                 "State error: sample_tokens() must be called "
                 "after execute_model() returns None."
             )
 
         if self.vllm_config.model_config.enable_return_routed_experts:
+            logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】启用返回路由专家")
             capturer = RoutedExpertsCapturer.get_instance()
             if capturer is not None:
                 capturer.clear_buffer()  # noqa
@@ -3157,19 +3161,24 @@ class GPUModelRunner(
                 logger.error("RoutedExpertsCapturer not initialized.")
 
         if scheduler_output.preempted_req_ids and has_kv_transfer_group():
+            logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】处理抢占请求")
             get_kv_transfer_group().handle_preemptions(
                 scheduler_output.preempted_req_ids
             )
 
         num_scheduled_tokens = scheduler_output.total_num_scheduled_tokens
+        logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】计划的token数量：{num_scheduled_tokens}")
+        
         with (
             record_function_or_nullcontext("gpu_model_runner: preprocess"),
             self.synchronize_input_prep(),
         ):
             # Update persistent batch states.
+            logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】更新批处理状态")
             self._update_states(scheduler_output)
 
             if has_ec_transfer() and get_ec_transfer().is_producer:
+                logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】是EC传输生产者，执行多模态编码器")
                 with self.maybe_get_ec_connector_output(
                     scheduler_output,
                     encoder_cache=self.encoder_cache,
@@ -3178,6 +3187,7 @@ class GPUModelRunner(
                     return make_empty_encoder_model_runner_output(scheduler_output)
 
             if not num_scheduled_tokens:
+                logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】没有计划的token，返回空输出")
                 if (
                     self.parallel_config.distributed_executor_backend
                     == "external_launcher"
@@ -3209,6 +3219,8 @@ class GPUModelRunner(
             max_num_scheduled_tokens = int(num_scheduled_tokens_np.max())
             num_tokens_unpadded = scheduler_output.total_num_scheduled_tokens
 
+            logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】请求数量：{num_reqs}，最大计划token数：{max_num_scheduled_tokens}")
+
             logits_indices, spec_decode_metadata = self._prepare_inputs(
                 scheduler_output,
                 num_scheduled_tokens_np,
@@ -3239,14 +3251,7 @@ class GPUModelRunner(
                 num_encoder_reqs=len(scheduler_output.scheduled_encoder_inputs),
             )
 
-            logger.debug(
-                "Running batch with cudagraph_mode: %s, batch_descriptor: %s, "
-                "should_ubatch: %s, num_tokens_across_dp: %s",
-                cudagraph_mode,
-                batch_desc,
-                should_ubatch,
-                num_tokens_across_dp,
-            )
+            logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】CUDA图模式：{cudagraph_mode}，批处理描述：{batch_desc}")
 
             num_tokens_padded = batch_desc.num_tokens
             num_reqs_padded = (
@@ -3260,11 +3265,7 @@ class GPUModelRunner(
                 self.parallel_config.num_ubatches,
             )
 
-            logger.debug(
-                "ubatch_slices: %s, ubatch_slices_padded: %s",
-                ubatch_slices,
-                ubatch_slices_padded,
-            )
+            logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】微批处理切片：{ubatch_slices}")
 
             pad_attn = cudagraph_mode == CUDAGraphMode.FULL
 
@@ -3286,6 +3287,8 @@ class GPUModelRunner(
                 )
             )
 
+            logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】构建注意力元数据完成")
+
             (
                 input_ids,
                 inputs_embeds,
@@ -3297,16 +3300,21 @@ class GPUModelRunner(
                 scheduler_output, num_tokens_padded, intermediate_tensors
             )
 
+            logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】预处理完成，input_ids形状：{input_ids.shape if input_ids is not None else 'None'}，inputs_embeds形状：{inputs_embeds.shape if inputs_embeds is not None else 'None'}")
+
         # Set cudagraph mode to none if calc_kv_scales is true.
         # KV scales calculation involves dynamic operations that are incompatible
         # with CUDA graph capture.
         if self.calculate_kv_scales:
+            logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】设置CUDA图模式为NONE，因为需要计算KV scales")
             cudagraph_mode = CUDAGraphMode.NONE
             # Mark KV scales as calculated after the first forward pass
             self.calculate_kv_scales = False
 
         # Run the model.
         # Use persistent buffers for CUDA graphs.
+        logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】准备运行模型，CUDA图模式：{cudagraph_mode}")
+        
         with (
             set_forward_context(
                 attn_metadata,
@@ -3323,6 +3331,21 @@ class GPUModelRunner(
             # 日志：模型前向传播
             logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】将输入喂给模型，input_ids形状：{input_ids.shape if input_ids is not None else 'None'}，inputs_embeds形状：{inputs_embeds.shape if inputs_embeds is not None else 'None'}")
             
+            # 打印输入向量的值（第一次推理时）
+            if not hasattr(self, 'first_inference_done') or not self.first_inference_done:
+                logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】第一次推理，打印输入向量值")
+                if input_ids is not None:
+                    logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】input_ids值（前10个）：{input_ids[:10].tolist() if input_ids.numel() > 10 else input_ids.tolist()}")
+                if inputs_embeds is not None:
+                    logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】inputs_embeds形状：{inputs_embeds.shape}")
+                    logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】inputs_embeds值（第一个向量的前10个元素）：{inputs_embeds[0][:10].tolist() if inputs_embeds.shape[1] > 10 else inputs_embeds[0].tolist()}")
+                # 标记第一次推理已完成
+                self.first_inference_done = True
+                logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】标记第一次推理完成")
+            else:
+                logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】非第一次推理，跳过打印输入向量值")
+            
+            logger.info(f"SxlAdd: [GPUModelRunner.execute_model] 【模型推理流程】调用_model_forward执行模型前向传播")
             model_output = self._model_forward(
                 input_ids=input_ids,
                 positions=positions,

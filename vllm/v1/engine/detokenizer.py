@@ -321,10 +321,10 @@ class SlowIncrementalDetokenizer(BaseIncrementalDetokenizer):
     def decode_next(self, next_token_id: int) -> str:
         logger.info(f"SxlAdd: 【SlowIncrementalDetokenizer】开始解码token，ID: {next_token_id}")
         # 只打印最后10行调用堆栈
-        stack_lines = traceback.format_stack()
-        if len(stack_lines) > 10:
-            stack_lines = stack_lines[-10:]
-        logger.info(f"SxlAdd: 【SlowIncrementalDetokenizer】调用堆栈:\n{''.join(stack_lines)}")
+        # stack_lines = traceback.format_stack()
+        # if len(stack_lines) > 10:
+        #     stack_lines = stack_lines[-10:]
+        # logger.info(f"SxlAdd: 【SlowIncrementalDetokenizer】调用堆栈:\n{''.join(stack_lines)}")
         logger.info(f"SxlAdd: 【SlowIncrementalDetokenizer】参数: tokenizer={type(self.tokenizer).__name__}, all_input_ids长度={len(self.token_ids)}, prev_tokens长度={len(self.tokens)}, prefix_offset={self.prefix_offset}, read_offset={self.read_offset}, skip_special_tokens={self.skip_special_tokens}, spaces_between_special_tokens={self.spaces_between_special_tokens}")
         
         ### 解码时，不跳过特殊token
